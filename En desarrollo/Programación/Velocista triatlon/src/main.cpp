@@ -1,5 +1,10 @@
 #include <Arduino.h>
 #include <BluetoothSerial.h>
+#include <QTRSensors.h>
+
+// ===== INICIALIZACION DEL BLUETOOTH Y LIBRERIA QTR =====
+BluetoothSerial SerialBT;
+QTRSensors qtr;
 
 #define D1 39
 #define D2 34
@@ -9,16 +14,18 @@
 #define D6 25
 #define D7 26
 #define D8 27
-#define SENSORES_TOTAL 8
+
+const uint8_t SENSORES_TOTAL = 8;
+uint16_t sensorValues[SENSORES_TOTAL];
 
 // ===== Motores ====
 #define IN1A 22
 #define IN1B 23 //bts 1
 #define IN2A 4
 #define IN2B 15 //bts 2
-int VMAX = 180; //APROX RPM
-int VBASE = 160; //APROX RPM
-int VMIN = 140; //APROX RPM
+int VMAX = 60; //APROX RPM
+int VBASE = 50; //APROX RPM
+int VMIN = 30; //APROX RPM
 
 #define led 2
 #define boton 17
@@ -38,8 +45,8 @@ const int ledChannel2 = 2;
 const int ledChannel3 = 3;
 
 // ===== Constantes y vaiables PID =====
-float kp = 2;     //proporcional-presente
-float ki = 0.01;  //integral-pasado
+float kp = 0.01;     //proporcional-presente
+float ki = 0;     //integral-pasado
 float kd = 0.5;   //derivativo-futuro
 float error = 0;
 float prevError = 0;
@@ -47,7 +54,7 @@ float integral = 0;
 float derivative = 0;
 float outputPID = 0;
 float lastError = 0;
-float setpoint = 3500;
+float setpoint = 5500;
 int   correccion = 0;
 
 // ========= Sensores =========
@@ -68,37 +75,38 @@ const uint16_t tiempo_comp = 5000;
 /*left = izq
   rigth = der*/
 
-// ===== INICIALIZACION DEL BLUETOOTH =====
-BluetoothSerial SerialBT;
-
 // ===== FUNCIONES =====
 void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
 
   if (izq >= 0) {
+    if(izq > 255){
+      izq = 255;
+    }
     ledcWrite(ledChannel, izq);
     ledcWrite(ledChannel1, 0);  //analog
   } else {
     izq = izq * (-1);
+    if(izq > 255){
+      izq = 255;
+    }
+    ledcWrite(ledChannel, 0);
     ledcWrite(ledChannel1, izq);
-    ledcWrite(ledChannel, 1);
   }
   //motor derecho//
   if (der >= 0) {
+    if(der > 255){
+      der = 255;
+    }
     ledcWrite(ledChannel2, der);
     ledcWrite(ledChannel3, 0);
   } else {
     der = der * (-1);
+    if(der > 255){
+      der = 255;
+    }
+    ledcWrite(ledChannel2, 0);
     ledcWrite(ledChannel3, der);
-    ledcWrite(ledChannel2, 1);
   }
-}
-
-int calcularPID(int lectura) {
-  error = setpoint - lectura;
-  integral += error;
-  derivative = error - lastError;
-  lastError = error;
-  return kp * error + ki * integral + kd * derivative;
 }
 
 void printArrayBT(const char *label, const int *arr, int n){
@@ -117,7 +125,7 @@ void calibrar_sensores(){ // si se presiona una vez el boton empieza a leer valo
 
   // Presionar el boton para medir blanco (creo que se debe mantener presionado - no estoy seguro)
   while (digitalRead(boton) == 0){}
-  delay(10);
+  delay(100);
   for (int x = 0; x < 8; x++){
     int valor_prom = 0;
     for (int i = 0; i < 10; i++)
@@ -128,17 +136,17 @@ void calibrar_sensores(){ // si se presiona una vez el boton empieza a leer valo
   printArrayBT("blanco", valor_blanco, 8);
 
   while (digitalRead(boton) == 1){}
-  delay(10);
+  delay(100);
   while (digitalRead(boton) == 0){} // se usa en 0 por el pull up - seria un 1 logico -
-  delay(10);
+  delay(100);
   for (int x = 0; x < 8; x++){
     int valor_prom = 0;
     for (int i = 0; i < 10; i++)
       valor_prom += analogRead(sensores[x]);
     valor_negro[x] = valor_prom / 10;
   }
-  SerialBT.println("[CAL] Lectura BLANCO:");
-  printArrayBT("blanco", valor_negro, 8);
+  SerialBT.println("[CAL] Lectura NEGRO:");
+  printArrayBT("negro", valor_negro, 8);
   // Calcular e imprimir umbrales
   for (int x = 0; x < 8; x++){
     valor_umbrales[x] = (valor_blanco[x] + valor_negro[x]) / 2;
@@ -176,16 +184,22 @@ void precaucion() {
 }
 
 int leer_linea(){
- int valores[SENSORES_TOTAL];
+ int valores_digi[SENSORES_TOTAL];
  long suma = 0; // Usar long para evitar desbordamiento en sumas grandes
  long suma_total = 0;
 
  for (int i = 0; i < SENSORES_TOTAL; i++) {
+     int lectura_analogica = analogRead(sensores[i]);
+
+     if (lectura_analogica > valor_umbrales[i]) {
+        valores_digi[i] = 1; // Vio la línea
+    } else {
+        valores_digi[i] = 0; // Vio el fondo
+    }
       // Usamos el puntero a los pines miembro _pinesSensores
       // Leemos los pines como digitales (0 o 1). Si fueran analógicos, sería analogRead().
-      valores[i] = analogRead(sensores[i]); 
-      suma += valores[i];
-      suma_total += (long)valores[i] * i * 1000;
+      suma += valores_digi[i];
+      suma_total += (long)valores_digi[i] * i * 1000;
     }
 
 if (suma == 0){
@@ -193,18 +207,23 @@ if (suma == 0){
     }
 
     // Posición centrada es: (NUM_SENSORES - 1) * 1000 / 2 = 7 * 1000 / 2 = 3500
-    // La posición retornada será (sumaPonderada / suma) - 3500
-    int posicion = (int)(suma_total / suma) - ((SENSORES_TOTAL - 1) * 500); 
+    // La posición retornada será (sumaponderada / suma) - 3500
+    int posicion = (int)(suma_total / suma);//- ((SENSORES_TOTAL - 1) * 500); 
     return posicion;
   }
 
 void setup(){
-  Serial.begin(115200);
+  SerialBT.begin(115200);
+
+  SerialBT.begin("vexus");
+
+  qtr.setTypeAnalog();
+  qtr.setSensorPins((const uint8_t[]){D1, D2, D3, D4, D5, D6, D7, D8}, SENSORES_TOTAL);
 
   // declaracion de pines regleta
-  for (int i = 0; i < 8; i++){
+  /*for (int i = 0; i < 8; i++){
     pinMode(sensores[i], INPUT);
-  }
+  }*/
 
   pinMode(led, OUTPUT);
   digitalWrite(led, 0);
@@ -222,12 +241,24 @@ void setup(){
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
-  calibrar_sensores();
-}
+  //calibrar_sensores();
 
-void loop(){
+  // analogRead() takes about 0.1 ms on an AVR.
+  // 0.1 ms per sensor * 4 samples per sensor read (default) * 6 sensors
+  // * 10 reads per calibrate() call = ~24 ms per calibrate() call.
+  // Call calibrate() 400 times to make calibration take about 10 seconds.
+  
+  while(digitalRead(boton)){}
 
-  if (!activo && !esperando_inicio){
+  digitalWrite(led, HIGH); // LED ON: inicio calibración
+  
+  for (uint16_t i = 0; i < 400; i++){
+    qtr.calibrate();
+  }
+
+  digitalWrite(led, LOW);
+
+  while (!esperando_inicio){
     if (digitalRead(boton) == LOW){
       tiempo_ini = millis(); // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
       esperando_inicio = true;
@@ -235,26 +266,68 @@ void loop(){
     return;
   }
 
+  while(!activo){
+    precaucion();
+  }
+
+
+  /*
   if (esperando_inicio){
     precaucion();
     return;
-  }
+  }*/
 
-  if (activo){
+}
 
-    int posicion = leer_linea();
+void loop(){
+
+    // desde 0 a 5000 (para leer linea blanca usar readLineWhite() en vez de readLineBlack())
+    uint16_t posicion = qtr.readLineBlack(sensorValues);
+    //int posicion = leer_linea();
 
     error = setpoint - posicion;
 
     derivative = error - lastError;
-    integral += error;
+    //integral += error;
     lastError = error;
-    outputPID = (kp * error) + (ki * integral) + (kd * derivative);
+    outputPID = (kp * error) + (kd * derivative);
 
     int velocidad_izq = VBASE - outputPID;
     int velocidad_der = VBASE +  outputPID;
 
-    motores(velocidad_izq, velocidad_der);
+    //motores(velocidad_izq, velocidad_der);
+      // Envía los valores de los 8 sensores separados por comas
+  /*for (int i = 0; i < SENSORES_TOTAL; i++) {
+    SerialBT.print("Sensor n°");
+    SerialBT.print(i);
+    SerialBT.print("= ");
+    SerialBT.print(analogRead(sensores[i]));
+    if (i < SENSORES_TOTAL - 1) SerialBT.print(",");
+  
+    SerialBT.println(); // Salto de línea para la siguiente lectura
+    delay(100);
+  }
+
+  SerialBT.print("Posicion = ");
+  SerialBT.println(posicion);
+*/
+  for (uint8_t i = 0; i < SENSORES_TOTAL; i++){
+    SerialBT.print("Sensor n°");
+    SerialBT.print(i);
+    SerialBT.print("= ");
+    SerialBT.print(sensorValues[i]);
+    SerialBT.print('\t');
+  }
+  SerialBT.print("Posicion = ");
+  SerialBT.println(posicion);
+
+  SerialBT.print("Error: ");
+  SerialBT.print(error);
+  SerialBT.print("Output: ");
+  SerialBT.print(outputPID);
+
+
+  delay(300);
 
     if (SerialBT.available() > 0){
       char dato = SerialBT.read();
@@ -290,5 +363,5 @@ void loop(){
         break;
       }
     }
-  }
+    
 }
