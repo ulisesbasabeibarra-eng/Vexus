@@ -27,8 +27,14 @@
 #define DISTANCIA 2000 //para sensores - luego hacer pruebassss
 
 unsigned long tiempo = 250;
-unsigned long tiempo_inicio_espera = 0; 
-unsigned long tiempo_inicio_retroceso = 0;
+
+
+bool esperando_inicio = false; 
+bool activo = false;
+ulong tiempo_ini = 0;
+ulong prev_time, current_time, tiempo_trans, time_luz;
+uint16_t tiempo_led = 3000,  tiempo_comp = 5000;
+
 
 // PWM's
 int PWM1 = VBASE;  //pwm de la izquierda
@@ -48,7 +54,6 @@ const int ledChannel3 = 3;
 BluetoothSerial SerialBT;
 
 // ===== MODOS =====
-byte MODOS = BUSCAR;
 enum MODOS{
     ATACAR,
     BUSCAR,
@@ -58,6 +63,7 @@ enum MODOS{
     BUSCAR_DE,
     BUSCAR_DE45
 };
+byte MODOS = BUSCAR;
 
 void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
 
@@ -80,15 +86,27 @@ void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
   }
 }
 
-void prenderLedPorTiempo(unsigned long tiempo_ms){
-    digitalWrite(led, LOW);
-    delay(tiempo_ms);
-    digitalWrite(led, HIGH);
-}
+void precaucion() {
+    time_luz = tiempo_led;
+    current_time = millis(); 
+    tiempo_trans = current_time - tiempo_ini;
 
-void precaucion(unsigned long espera) {
-motores(0,0);
-prenderLedPorTiempo(espera);
+    //se enciende entre 3 y 5 segundos
+    // Condición: (tiempo transcurrido >= 3000ms) Y (tiempo transcurrido < 5000ms)
+    if (tiempo_trans >= time_luz && tiempo_trans <  tiempo_comp) {
+        digitalWrite(led, HIGH);
+    } else {
+        digitalWrite(led, LOW);
+    }
+
+    if (tiempo_trans >=  tiempo_comp) {
+        // La cuenta regresiva terminó
+        esperando_inicio = false; // Desactiva el estado de espera
+        activo = true;            // Activa el estado de batalla
+        digitalWrite(led, LOW);   // Apaga la luz final
+    }
+
+    motores(0, 0); 
 }
 
 void salir(){  
@@ -97,21 +115,21 @@ tiempo >= millis();
 
     if (!digitalRead(T1)){ // Evitar que se salga del tatami
         motores(-VMIN, -VMIN);
-        millis();
+        delay(100);
         MODOS = BUSCAR_IZ;
         SerialBT.print("sensor izq tcrt:");
         SerialBT.println(digitalRead(T1));
     }
     else if (!digitalRead(T2)){
         motores(-VMIN, -VMIN);
-        millis();
+        delay(100);
         MODOS = BUSCAR_DE;
         SerialBT.print("sensor der tcrt:");
         SerialBT.println(digitalRead(T2));
     }
     else if (!digitalRead(T3)){
         motores(-VMIN, -VMIN);
-        millis();
+        delay(100);
         MODOS = BUSCAR_DE;
         SerialBT.print("sensor der tcrt:");
         SerialBT.println(digitalRead(T3));
@@ -121,10 +139,11 @@ tiempo >= millis();
 void setup() {
     Serial.begin(115200);
 
-   // declaracion de pines sharp
+/* declaracion de pines sharp, unicamente se menciona por el funcionamiento del adc del esp
  for (int i = S1; i <= S5; i++){
     pinMode(i, INPUT);
  }
+*/
 
   // declaracion de pines tcrt  
   pinMode(T1, INPUT);
@@ -156,12 +175,25 @@ void setup() {
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
-  precaucion(5000); 
+
 }
 
 void loop() {
 
-//if (digitalRead(boton)==0){}
+    if (!activo && !esperando_inicio) {
+        if (digitalRead(boton) == LOW) { 
+            tiempo_ini = millis();       // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
+            esperando_inicio = true;
+        }
+        return; 
+    } 
+
+    if (esperando_inicio) {
+        precaucion(); 
+        return; 
+    }
+    
+    if (activo) {
 
 
     bool borde_atra = !digitalRead(T1); //TRUE si detecta línea blanca
@@ -234,3 +266,4 @@ if (analogRead(S3) >= DISTANCIA){ // sensor del medio        // -
 
   }  
 
+}
