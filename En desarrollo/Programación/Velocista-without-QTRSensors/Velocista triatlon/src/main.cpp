@@ -1,10 +1,5 @@
 #include <Arduino.h>
 #include <BluetoothSerial.h>
-#include <QTRSensors.h>
-
-// ===== INICIALIZACION DEL BLUETOOTH Y LIBRERIA QTR =====
-BluetoothSerial SerialBT;
-QTRSensors qtr;
 
 #define D1 39
 #define D2 34
@@ -14,9 +9,7 @@ QTRSensors qtr;
 #define D6 25
 #define D7 26
 #define D8 27
-
-const uint8_t SENSORES_TOTAL = 8;
-uint16_t sensorValues[SENSORES_TOTAL];
+#define SENSORES_TOTAL 8
 
 // ===== Motores ====
 #define IN1A 22
@@ -45,15 +38,15 @@ const int ledChannel2 = 2;
 const int ledChannel3 = 3;
 
 // ===== Constantes y vaiables PID =====
-float kp = 0.5;     //proporcional-presente
-float kd = 1;       //derivativo-futuro
+float kp = 2;     //proporcional-presente
+float kd = 0.5;   //derivativo-futuro
 float error = 0;
 float prevError = 0;
 float integral = 0;
 float derivative = 0;
 float outputPID = 0;
 float lastError = 0;
-float setpoint = 5500;
+float setpoint = 3500;
 int   correccion = 0;
 
 // ========= Sensores =========
@@ -74,38 +67,37 @@ const uint16_t tiempo_comp = 5000;
 /*left = izq
   rigth = der*/
 
+// ===== INICIALIZACION DEL BLUETOOTH =====
+BluetoothSerial SerialBT;
+
 // ===== FUNCIONES =====
 void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
 
   if (izq >= 0) {
-    if(izq > 255){
-      izq = 255;
-    }
     ledcWrite(ledChannel, izq);
     ledcWrite(ledChannel1, 0);  //analog
   } else {
     izq = izq * (-1);
-    if(izq > 255){
-      izq = 255;
-    }
-    ledcWrite(ledChannel, 0);
     ledcWrite(ledChannel1, izq);
+    ledcWrite(ledChannel, 1);
   }
   //motor derecho//
   if (der >= 0) {
-    if(der > 255){
-      der = 255;
-    }
     ledcWrite(ledChannel2, der);
     ledcWrite(ledChannel3, 0);
   } else {
     der = der * (-1);
-    if(der > 255){
-      der = 255;
-    }
-    ledcWrite(ledChannel2, 0);
     ledcWrite(ledChannel3, der);
+    ledcWrite(ledChannel2, 1);
   }
+}
+
+int calcularPID(int lectura) {
+  error = setpoint - lectura;
+  integral += error;
+  derivative = error - lastError;
+  lastError = error;
+  return kp * error + kd * derivative;
 }
 
 void printArrayBT(const char *label, const int *arr, int n){
@@ -213,15 +205,13 @@ if (suma == 0){
 
 void setup(){
   Serial.begin(115200);
+
   SerialBT.begin("vexus");
 
-  qtr.setTypeAnalog();
-  qtr.setSensorPins((const uint8_t[]){D1, D2, D3, D4, D5, D6, D7, D8}, SENSORES_TOTAL);
-
   // declaracion de pines regleta
-  /*for (int i = 0; i < 8; i++){
+  for (int i = 0; i < 8; i++){
     pinMode(sensores[i], INPUT);
-  }*/
+  }
 
   pinMode(led, OUTPUT);
   digitalWrite(led, 0);
@@ -239,24 +229,12 @@ void setup(){
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
-  //calibrar_sensores();
+  calibrar_sensores();
+}
 
-  // La función analogRead() tarda aproximadamente 0,1 ms en un microcontrolador AVR.
-  // 0,1 ms por sensor * 4 muestras por lectura de sensor (por defecto) * 8 sensores
-  // * 10 lecturas por llamada a calibrate() = ~32 ms por llamada a  funcion calibrate().
-  // Llamar a calibrate() 400 veces hará que la calibración tarde aproximadamente 10 segundos.
-  
-  while(digitalRead(boton)){}
+void loop(){
 
-  digitalWrite(led, HIGH); // LED ON: inicio calibración
-  
-  for (uint16_t i = 0; i < 400; i++){
-    qtr.calibrate();
-  }
-
-  digitalWrite(led, LOW);
-
-  while (!esperando_inicio){
+  if (!activo && !esperando_inicio){
     if (digitalRead(boton) == LOW){
       tiempo_ini = millis(); // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
       esperando_inicio = true;
@@ -264,68 +242,35 @@ void setup(){
     return;
   }
 
-  while(!activo){
-    precaucion();
-  }
-
-
-  /*
   if (esperando_inicio){
     precaucion();
     return;
-  }*/
+  }
 
-}
+  if (activo){
 
-void loop(){
-
-    // desde 0 a 5000 (para leer linea blanca usar readLineWhite() en vez de readLineBlack())
-    uint16_t posicion = qtr.readLineBlack(sensorValues);
-    //int posicion = leer_linea();
+    int posicion = leer_linea();
 
     error = setpoint - posicion;
 
     derivative = error - lastError;
-    //integral += error;
+    integral += error;
     lastError = error;
-    outputPID = (kp * error) + (kd * derivative);
+    outputPID = (kp * error) + (ki * integral) + (kd * derivative);
 
     int velocidad_izq = VBASE - outputPID;
     int velocidad_der = VBASE +  outputPID;
 
-    //motores(velocidad_izq, velocidad_der);
+    motores(velocidad_izq, velocidad_der);
       // Envía los valores de los 8 sensores separados por comas
-  /*for (int i = 0; i < SENSORES_TOTAL; i++) {
-    SerialBT.print("Sensor n°");
-    SerialBT.print(i);
-    SerialBT.print("= ");
+  for (int i = 0; i < SENSORES_TOTAL; i++) {
     SerialBT.print(analogRead(sensores[i]));
     if (i < SENSORES_TOTAL - 1) SerialBT.print(",");
   
-    SerialBT.println(); // Salto de línea para la siguiente lectura
-    delay(100);
-  }
+  SerialBT.println(); // Salto de línea para la siguiente lectura
+  delay(400);
+}
 
-  SerialBT.print("Posicion = ");
-  SerialBT.println(posicion);
-*/
-  for (uint8_t i = 0; i < SENSORES_TOTAL; i++){
-    SerialBT.print("Sensor n°");
-    SerialBT.print(i);
-    SerialBT.print("= ");
-    SerialBT.print(sensorValues[i]);
-    SerialBT.print('\t');
-  }
-  SerialBT.print("Posicion = ");
-  SerialBT.println(posicion);
-
-  SerialBT.print("Error: ");
-  SerialBT.print(error);
-  SerialBT.print("Output: ");
-  SerialBT.print(outputPID);
-
-
-  delay(300);
 
     if (SerialBT.available() > 0){
       char dato = SerialBT.read();
@@ -361,5 +306,5 @@ void loop(){
         break;
       }
     }
-    
+  }
 }
