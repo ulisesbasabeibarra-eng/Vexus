@@ -24,7 +24,7 @@ uint16_t sensorValues[SENSORES_TOTAL];
 #define IN2A 4
 #define IN2B 15 //bts 2
 int VMAX = 60; //APROX RPM
-int VBASE = 50; //APROX RPM
+int VBASE = 100; //APROX RPM
 int VMIN = 30; //APROX RPM
 
 #define led 2
@@ -45,8 +45,7 @@ const int ledChannel2 = 2;
 const int ledChannel3 = 3;
 
 // ===== Constantes y vaiables PID =====
-float kp = 0.01;     //proporcional-presente
-float ki = 0;     //integral-pasado
+float kp = 0.05;   //proporcional-presente
 float kd = 0.5;   //derivativo-futuro
 float error = 0;
 float prevError = 0;
@@ -54,7 +53,7 @@ float integral = 0;
 float derivative = 0;
 float outputPID = 0;
 float lastError = 0;
-float setpoint = 5500;
+float setpoint = 5500; //utilizando este setpoint se dispone del lado DERECHO EL NEGRO e IZQUIERDO EL BLANCO (1500 = al rves)
 int   correccion = 0;
 
 // ========= Sensores =========
@@ -189,9 +188,9 @@ int leer_linea(){
  long suma_total = 0;
 
  for (int i = 0; i < SENSORES_TOTAL; i++) {
-     int lectura_analogica = analogRead(sensores[i]);
+     int lectura_analogica = sensorValues[i];
 
-     if (lectura_analogica > valor_umbrales[i]) {
+     if (lectura_analogica > 850) {
         valores_digi[i] = 1; // Vio la línea
     } else {
         valores_digi[i] = 0; // Vio el fondo
@@ -213,12 +212,11 @@ if (suma == 0){
   }
 
 void setup(){
-  SerialBT.begin(115200);
+  Serial.begin(115200);
 
   SerialBT.begin("vexus");
 
-  qtr.setTypeAnalog();
-  qtr.setSensorPins((const uint8_t[]){D1, D2, D3, D4, D5, D6, D7, D8}, SENSORES_TOTAL);
+  delay(1000);
 
   // declaracion de pines regleta
   /*for (int i = 0; i < 8; i++){
@@ -226,8 +224,8 @@ void setup(){
   }*/
 
   pinMode(led, OUTPUT);
-  digitalWrite(led, 0);
   pinMode(boton, INPUT_PULLUP);
+  digitalWrite(led, LOW);
 
   ledcSetup(ledChannel, frequency, resolution);
   ledcAttachPin(IN1A, ledChannel);
@@ -241,34 +239,45 @@ void setup(){
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
+  qtr.setTypeAnalog();
+  qtr.setSensorPins((const uint8_t[]){D1, D2, D3, D4, D5, D6, D7, D8}, SENSORES_TOTAL);
+ 
+  Serial.println("\n=== VEXUS ENCENDIDO ===");
+  Serial.println("Presiona el boton para iniciar CALIBRACION...");
+
+  SerialBT.println("\n=== VEXUS ENCENDIDO ===");
+  SerialBT.println("Presiona el boton para iniciar CALIBRACION...");
+
   //calibrar_sensores();
 
-  // analogRead() takes about 0.1 ms on an AVR.
-  // 0.1 ms per sensor * 4 samples per sensor read (default) * 6 sensors
-  // * 10 reads per calibrate() call = ~24 ms per calibrate() call.
-  // Call calibrate() 400 times to make calibration take about 10 seconds.
+  // La función analogRead() tarda aproximadamente 0,1 ms en un microcontrolador AVR.
+  // 0,1 ms por sensor * 4 muestras por lectura de sensor (por defecto) * 8 sensores
+  // * 10 lecturas por llamada a calibrate() = ~32 ms por llamada a  funcion calibrate().
+  // Llamar a calibrate() 400 veces hará que la calibración tarde aproximadamente 10 segundos.
   
   while(digitalRead(boton)){}
 
   digitalWrite(led, HIGH); // LED ON: inicio calibración
   
   for (uint16_t i = 0; i < 400; i++){
-    qtr.calibrate();
+    qtr.calibrate(); //se calibra de arriba a abajo utilizando QTRSensors
   }
 
   digitalWrite(led, LOW);
 
+  while(digitalRead(boton)){}
+
+  /*
   while (!esperando_inicio){
     if (digitalRead(boton) == LOW){
       tiempo_ini = millis(); // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
       esperando_inicio = true;
     }
-    return;
   }
-
+  
   while(!activo){
     precaucion();
-  }
+  }*/
 
 
   /*
@@ -277,12 +286,16 @@ void setup(){
     return;
   }*/
 
+  
+  SerialBT.println("INICIO");
+
 }
 
 void loop(){
 
     // desde 0 a 5000 (para leer linea blanca usar readLineWhite() en vez de readLineBlack())
-    uint16_t posicion = qtr.readLineBlack(sensorValues);
+    qtr.read(sensorValues);
+    int posicion = leer_linea();
     //int posicion = leer_linea();
 
     error = setpoint - posicion;
@@ -295,7 +308,7 @@ void loop(){
     int velocidad_izq = VBASE - outputPID;
     int velocidad_der = VBASE +  outputPID;
 
-    //motores(velocidad_izq, velocidad_der);
+   //motores(velocidad_izq, velocidad_der);
       // Envía los valores de los 8 sensores separados por comas
   /*for (int i = 0; i < SENSORES_TOTAL; i++) {
     SerialBT.print("Sensor n°");
@@ -311,6 +324,7 @@ void loop(){
   SerialBT.print("Posicion = ");
   SerialBT.println(posicion);
 */
+
   for (uint8_t i = 0; i < SENSORES_TOTAL; i++){
     SerialBT.print("Sensor n°");
     SerialBT.print(i);
@@ -318,6 +332,7 @@ void loop(){
     SerialBT.print(sensorValues[i]);
     SerialBT.print('\t');
   }
+
   SerialBT.print("Posicion = ");
   SerialBT.println(posicion);
 
