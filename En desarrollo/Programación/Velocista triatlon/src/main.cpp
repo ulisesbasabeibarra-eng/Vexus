@@ -23,9 +23,7 @@ uint16_t sensorValues[SENSORES_TOTAL];
 #define IN1B 23 //bts 1
 #define IN2A 4
 #define IN2B 15 //bts 2
-int VMAX = 60; //APROX RPM
-int VBASE = 100; //APROX RPM
-int VMIN = 30; //APROX RPM
+int VBASE = 90; //APROX RPM
 
 #define led 2
 #define boton 17
@@ -45,15 +43,15 @@ const int ledChannel2 = 2;
 const int ledChannel3 = 3;
 
 // ===== Constantes y vaiables PID =====
-float kp = 0.05;   //proporcional-presente
-float kd = 0.5;   //derivativo-futuro
+float kp = 0.06;   //proporcional-presente -- le da fuerza al motor para corregir el error
+float kd = 0.055;   //derivativo-futuro -- suaviza el error
 float error = 0;
 float prevError = 0;
 float integral = 0;
 float derivative = 0;
 float outputPID = 0;
 float lastError = 0;
-float setpoint = 5500; //utilizando este setpoint se dispone del lado DERECHO EL NEGRO e IZQUIERDO EL BLANCO (1500 = al rves)
+float setpoint = 5500; //utilizando este setpoint se dispone del lado IZQUIERDO EL NEGRO Y DERECHO EL BLANCO (1500 = al rves)
 int   correccion = 0;
 
 // ========= Sensores =========
@@ -190,7 +188,7 @@ int leer_linea(){
  for (int i = 0; i < SENSORES_TOTAL; i++) {
      int lectura_analogica = sensorValues[i];
 
-     if (lectura_analogica > 850) {
+     if (lectura_analogica > 800) {
         valores_digi[i] = 1; // Vio la línea
     } else {
         valores_digi[i] = 0; // Vio el fondo
@@ -201,15 +199,16 @@ int leer_linea(){
       suma_total += (long)valores_digi[i] * i * 1000;
     }
 
-if (suma == 0){
-      return lastError; // Usar _ultimoError (variable miembro)
+    if (suma == 0){
+      SerialBT.println("Ultimo error");
+      return 8000; // Usar _ultimoError (variable miembro)
     }
 
     // Posición centrada es: (NUM_SENSORES - 1) * 1000 / 2 = 7 * 1000 / 2 = 3500
     // La posición retornada será (sumaponderada / suma) - 3500
     int posicion = (int)(suma_total / suma);//- ((SENSORES_TOTAL - 1) * 500); 
     return posicion;
-  }
+}
 
 void setup(){
   Serial.begin(115200);
@@ -296,7 +295,6 @@ void loop(){
     // desde 0 a 5000 (para leer linea blanca usar readLineWhite() en vez de readLineBlack())
     qtr.read(sensorValues);
     int posicion = leer_linea();
-    //int posicion = leer_linea();
 
     error = setpoint - posicion;
 
@@ -308,7 +306,7 @@ void loop(){
     int velocidad_izq = VBASE - outputPID;
     int velocidad_der = VBASE +  outputPID;
 
-   //motores(velocidad_izq, velocidad_der);
+   motores(velocidad_izq, velocidad_der);
       // Envía los valores de los 8 sensores separados por comas
   /*for (int i = 0; i < SENSORES_TOTAL; i++) {
     SerialBT.print("Sensor n°");
@@ -342,7 +340,7 @@ void loop(){
   SerialBT.print(outputPID);
 
 
-  delay(300);
+ // delay(300);
 
     if (SerialBT.available() > 0){
       char dato = SerialBT.read();
