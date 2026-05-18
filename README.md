@@ -44,3 +44,7 @@ En este se implemento el diseño doble faz y componentes SMD (como lo son capaci
 ## Modelo 3D
 
 En este proyecto se utilizo Autodesk, plataforma de software, ademas de ser muy utilizado a la hora de hacer diseños 3D, gracias a que este ofrece una amplia gama de software como AutoCAD, Fusion 360, Inventor y 3ds Max, utilizados en sectores como la ingeniería, la arquitectura, el entretenimiento y el diseño de productos.
+
+[![imagen-2026-05-18-104416967.png](https://i.postimg.cc/fTSfXD2d/imagen-2026-05-18-104416967.png)](https://postimg.cc/xcYmVDSj)
+
+[![imagen-2026-05-18-104659284.png](https://i.postimg.cc/0yxc7rzf/imagen-2026-05-18-104659284.png)](https://postimg.cc/kB1QmJF6)
