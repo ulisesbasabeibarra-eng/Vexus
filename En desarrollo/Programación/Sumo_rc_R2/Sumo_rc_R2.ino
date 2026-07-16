@@ -62,11 +62,18 @@ void loop() {
     int r2val = myController->throttle(); // throttle() corresponde a R2
 
     // Mapeo R2: de 0..1023 → 100..255
-    int maxSpeed = map(r2val, 0, 1023, 100, 255);
+    int maxSpeed = map(r2val, 0, 1020, 100, 255);
 
     // Normalizar sticks a rango -maxSpeed..maxSpeed
     int motorLeft  = map(ly, -511, 512, maxSpeed, -maxSpeed);  // invertido (arriba = positivo)
     int motorRight = map(ry, -511, 512, maxSpeed, -maxSpeed);
+
+    if (abs(motorLeft) < 15) {
+      motorLeft = 0;
+    }
+    if (abs(motorRight) < 15) {
+      motorRight = 0;
+    }
 
     // Mover motores
     setMotor(IN1A, IN1B, motorLeft);
