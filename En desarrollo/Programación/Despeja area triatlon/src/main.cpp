@@ -2,11 +2,11 @@
 #include <BluetoothSerial.h>
 
 // pines para sharps
-#define S1 14
-#define S2 19
-#define S3 18
-#define S4 21
-#define S5 16
+#define S1 39// sensor izq
+#define S2 32 //sensor izq 45
+#define S3 33 // sensor del medio 
+#define S4 26 //sensor der 45
+#define S5 27 // sensor der 
 
 //pines para tcrt
 #define T1 36
@@ -18,13 +18,13 @@
 #define IN1B 23 //bts 1
 #define IN2A 4
 #define IN2B 15 //bts 2
-#define VMAX 160 //APROX  RPM
-#define VBASE 140 //APROX  RPM
-#define VMIN 120 //APROX  RPM
+#define VMAX 80 //APROX  RPM
+#define VBASE 70 //APROX  RPM
+#define VMIN 60 //APROX  RPM
 
 #define led 2
 #define boton 17
-#define DISTANCIA 2000 //para sensores - luego hacer pruebassss
+#define DISTANCIA 1700 //para sensores - luego hacer pruebassss
 
 unsigned long tiempo = 250;
 
@@ -65,6 +65,15 @@ enum MODOS{
 };
 byte MODOS = BUSCAR;
 
+float lectura(int pin){
+  int suma = 0;
+  for(int i = 0; i < 25; i++){
+    suma += analogRead(pin);
+  }
+  return suma / 20;
+}
+
+
 void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
 
   if (izq >= 0) {
@@ -85,8 +94,8 @@ void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
     ledcWrite(ledChannel2, 1);
   }
 }
-
-void precaucion() {
+ 
+/*void precaucion() {
     time_luz = tiempo_led;
     current_time = millis(); 
     tiempo_trans = current_time - tiempo_ini;
@@ -108,6 +117,7 @@ void precaucion() {
 
     motores(0, 0); 
 }
+*/
 
 void salir(){  
 
@@ -138,7 +148,7 @@ tiempo >= millis();
 
 void setup() {
     Serial.begin(115200);
-
+    SerialBT.begin("vexus");
 /* declaracion de pines sharp, unicamente se menciona por el funcionamiento del adc del esp
  for (int i = S1; i <= S5; i++){
     pinMode(i, INPUT);
@@ -161,8 +171,6 @@ void setup() {
 
   // Configuración de PWM en cada canal y pin
 
-  //ledcAttach(IN1A, frequency, resolution);
-
   ledcSetup(ledChannel, frequency, resolution);
   ledcAttachPin(IN1A, ledChannel);
 
@@ -175,11 +183,23 @@ void setup() {
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
+while(digitalRead(boton)){
+    Serial.println("Esperando boton...");
+  }
+
+/*
+  digitalWrite(led, LOW);
+  delay (3000);
+  digitalWrite(led, HIGH);
+  delay (2000);
+*/
+  while(digitalRead(boton)){}
+
 
 }
 
 void loop() {
-
+/*
     if (!activo && !esperando_inicio) {
         if (digitalRead(boton) == LOW) { 
             tiempo_ini = millis();       // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
@@ -195,34 +215,37 @@ void loop() {
     
     if (activo) {
 
+*/
+
 
     bool borde_atra = !digitalRead(T1); //TRUE si detecta línea blanca
     bool borde_izq = !digitalRead(T2); // TRUE si detecta línea blanca
     bool borde_der = !digitalRead(T3); // TRUE si detecta línea blanca
    
-if (analogRead(S3) >= DISTANCIA){ // sensor del medio        // -
+    if (lectura(S3) <= DISTANCIA){ // sensor del medio       // -
         MODOS = ATACAR;                                      //  |
     }                                                        //  |    
-    else if (analogRead(S1) >= DISTANCIA){ // sensor izq     //  |        Prioriza los
+    else if (lectura(S1) <= DISTANCIA){ // sensor izq        //  |        Prioriza los
         MODOS = BUSCAR_IZ;                                   //  |   
     }                                                        //  |      3 más importantes
-    else if (analogRead(S5) >= DISTANCIA){ // sensor der     //  |
+    else if (lectura(S5) <= DISTANCIA){ // sensor der        //  |
         MODOS = BUSCAR_DE;                                   //  |
     }                                                        // - 
-
-    else if (analogRead(S2) >= DISTANCIA){//sensor izq 45
+    else if (lectura(S2) <= DISTANCIA){//sensor izq 45
         MODOS = BUSCAR_IZQ45;
     }
-     else if (analogRead(S4) >= DISTANCIA){//sensor der 45
+     else if (lectura(S4) <= DISTANCIA){//sensor der 45
         MODOS = BUSCAR_DE45;
     }
 
-    if (borde_izq || borde_der){//tcrt izq y der
+    /*if (borde_izq || borde_der){//tcrt izq y der
         MODOS = ATRAS;
-    }
+    }*/
     else if (borde_atra){
         MODOS = ATACAR;
     }
+
+    SerialBT.print(MODOS);
 
     switch (MODOS){
     case BUSCAR:
@@ -232,38 +255,48 @@ if (analogRead(S3) >= DISTANCIA){ // sensor del medio        // -
 
     case BUSCAR_DE:
         motores(VMIN, VMAX);
-
+        Serial.print("\nSensor derecho:");
+        Serial.print(lectura(S5));
+        delay (500);
         break;
 
     case BUSCAR_DE45:
         motores(VBASE, VMAX);
-
+        Serial.print("\nSensor dere45:");
+        Serial.print(lectura(S4));
+        delay (500);
         break;
 
     case BUSCAR_IZ:
         motores(VMAX, VMIN);
-
+        Serial.print("\nSensor izquierdo:");
+        Serial.print(lectura(S1));
+        delay (500);
         break;
 
     case BUSCAR_IZQ45:
         motores(VMAX, VBASE);
-
+        Serial.print("\nSensor izq45:");
+        Serial.print(lectura(S2));
+        delay (500);
         break;
 
     case ATACAR:
         motores(VMAX, VMAX);
-
+        Serial.print("\nSensor delantero:");
+        Serial.print(lectura(S3));
+        delay (500);
         break;
 
     case ATRAS:
         salir();
-        //motores(-VMIN,-VMIN);
+        motores(-VMIN,-VMIN);
         break;
 
     default:
         break;
     }
 
-  }  
+ // }
 
 }
