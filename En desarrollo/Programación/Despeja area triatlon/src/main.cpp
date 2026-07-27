@@ -67,7 +67,7 @@ byte MODOS = BUSCAR;
 
 float lectura(int pin){
   int suma = 0;
-  for(int i = 0; i < 25; i++){
+  for(int i = 0; i < 20; i++){
     suma += analogRead(pin);
   }
   return suma / 20;
@@ -238,9 +238,9 @@ void loop() {
         MODOS = BUSCAR_DE45;
     }
 
-    /*if (borde_izq || borde_der){//tcrt izq y der
+    if (borde_izq || borde_der){//tcrt izq y der
         MODOS = ATRAS;
-    }*/
+    }
     else if (borde_atra){
         MODOS = ATACAR;
     }
@@ -255,37 +255,37 @@ void loop() {
 
     case BUSCAR_DE:
         motores(VMIN, VMAX);
-        Serial.print("\nSensor derecho:");
+       /* Serial.print("\nSensor derecho:");
         Serial.print(lectura(S5));
-        delay (500);
+        delay (500);*/
         break;
 
     case BUSCAR_DE45:
         motores(VBASE, VMAX);
-        Serial.print("\nSensor dere45:");
+      /*  Serial.print("\nSensor dere45:");
         Serial.print(lectura(S4));
-        delay (500);
+        delay (500);*/
         break;
 
     case BUSCAR_IZ:
         motores(VMAX, VMIN);
-        Serial.print("\nSensor izquierdo:");
+      /*  Serial.print("\nSensor izquierdo:");
         Serial.print(lectura(S1));
-        delay (500);
+        delay (500);*/
         break;
 
     case BUSCAR_IZQ45:
         motores(VMAX, VBASE);
-        Serial.print("\nSensor izq45:");
+        /*Serial.print("\nSensor izq45:");
         Serial.print(lectura(S2));
-        delay (500);
+        delay (500);*/
         break;
 
     case ATACAR:
         motores(VMAX, VMAX);
-        Serial.print("\nSensor delantero:");
+       /* Serial.print("\nSensor delantero:");
         Serial.print(lectura(S3));
-        delay (500);
+        delay (500);*/
         break;
 
     case ATRAS:
