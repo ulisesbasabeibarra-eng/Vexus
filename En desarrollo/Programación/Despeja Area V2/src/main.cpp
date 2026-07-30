@@ -9,9 +9,9 @@
 #define S5 27 // sensor der 
 
 //pines para tcrt
-#define T1 36
-#define T2 13
-#define T3 5
+#define T1 36 // tcrt de la derecha
+#define T2 13 //tcrt de la izquierda
+#define T3 5 // tcrt trasero
 
 // ===== Motores ====
 #define IN1A 22
@@ -95,75 +95,51 @@ int suma_binaria = 0;
 return suma_binaria;
 }
 
-void motores(int izq, int der) {  //0 hasta 255 adelante 0 hasta -255 atras
-
+void motores(int izq, int der) {
   if (izq >= 0) {
+    if(izq > 255){ izq = 255; }
     ledcWrite(ledChannel, izq);
-    ledcWrite(ledChannel1, 0);  //analog
+    ledcWrite(ledChannel1, 0);
   } else {
     izq = izq * (-1);
+    if(izq > 255){ izq = 255; }
+    ledcWrite(ledChannel, 0);
     ledcWrite(ledChannel1, izq);
-    ledcWrite(ledChannel, 1);
   }
-  //motor derecho//
+  
   if (der >= 0) {
+    if(der > 255){ der = 255; }
     ledcWrite(ledChannel2, der);
     ledcWrite(ledChannel3, 0);
   } else {
     der = der * (-1);
+    if(der > 255){ der = 255; }
+    ledcWrite(ledChannel2, 0);
     ledcWrite(ledChannel3, der);
-    ledcWrite(ledChannel2, 1);
   }
 }
- 
-/*void precaucion() {
-    time_luz = tiempo_led;
-    current_time = millis(); 
-    tiempo_trans = current_time - tiempo_ini;
 
-    //se enciende entre 3 y 5 segundos
-    // Condición: (tiempo transcurrido >= 3000ms) Y (tiempo transcurrido < 5000ms)
-    if (tiempo_trans >= time_luz && tiempo_trans <  tiempo_comp) {
-        digitalWrite(led, HIGH);
-    } else {
-        digitalWrite(led, LOW);
+void salir() { 
+    if (!digitalRead(T1)) { 
+        unsigned long tiempo_inicio = millis(); 
+        while (millis() < tiempo_inicio + 300) {
+            motores(-VMAX, -VMAX); 
+        }
+        MODOS = BUSCAR_IZ; 
     }
-
-    if (tiempo_trans >=  tiempo_comp) {
-        // La cuenta regresiva terminó
-        esperando_inicio = false; // Desactiva el estado de espera
-        activo = true;            // Activa el estado de batalla
-        digitalWrite(led, LOW);   // Apaga la luz final
+    else if (!digitalRead(T2)) { 
+        unsigned long tiempo_inicio = millis(); 
+        while (millis() < tiempo_inicio + 300) {
+            motores(-VMAX, -VMAX); 
+        }
+        MODOS = BUSCAR_DE; 
     }
-
-    motores(0, 0); 
-}
-*/
-
-int salir(int barzola_time){  
-
-// barzola_time >= millis(); 
-
-    if (!digitalRead(T1)){ // Evitar que se salga del tatami
-
-       motores(-VMIN, -VMIN);
-        MODOS = BUSCAR_IZ;
- //     SerialBT.print("sensor izq tcrt:");
- //     SerialBT.println(digitalRead(T1));
-       }
-    else if (!digitalRead(T2)){
-        motores(-VMIN, -VMIN);
-
-        MODOS = BUSCAR_DE;
- //        SerialBT.print("sensor der tcrt:");
- //        SerialBT.println(digitalRead(T2)); 
-    }
-    else if (!digitalRead(T3)){
-        motores(-VMIN, -VMIN);
-
-        MODOS = BUSCAR_DE;
- //      SerialBT.print("sensor der tcrt:");
- //      SerialBT.println(digitalRead(T3));
+    else if (!digitalRead(T3)) { 
+        unsigned long tiempo_inicio = millis(); 
+        while (millis() < tiempo_inicio + 300) {
+            motores(-VMAX, -VMAX); 
+        }
+        MODOS = BUSCAR_DE; 
     }
 }
 
@@ -191,7 +167,6 @@ void setup() {
   pinMode(boton, INPUT_PULLUP);
 
   // Configuración de PWM en cada canal y pin
-
   ledcSetup(ledChannel, frequency, resolution);
   ledcAttachPin(IN1A, ledChannel);
 
@@ -216,27 +191,9 @@ while(digitalRead(boton)){
 */
   while(digitalRead(boton)){}
 
-
 }
 
 void loop() {
-/*
-    if (!activo && !esperando_inicio) {
-        if (digitalRead(boton) == LOW) { 
-            tiempo_ini = millis();       // CRÍTICO: Asignar el tiempo de inicio UNA SOLA VEZ
-            esperando_inicio = true;
-        }
-        return; 
-    } 
-
-    if (esperando_inicio) {
-        precaucion(); 
-        return; 
-    }
-    
-    if (activo) {
-
-*/
 
     bool borde_atra = !digitalRead(T1); //TRUE si detecta línea blanca
     bool borde_izq = !digitalRead(T2); // TRUE si detecta línea blanca
@@ -330,8 +287,8 @@ void loop() {
         break;
 
     case ATRAS:
-        salir(200);
-        motores(-VMIN,-VMIN);
+        salir();
+        motores(-VMAX,-VMAX);
         break;
 
     default:
