@@ -21,16 +21,16 @@ uint8_t channel[8] = {4,5,6,7,8,9,10,11};
 // === VARIABLES PID Y CONTROL ===
 int pos = 0;
 int poslast = 350;
-float kp = 0.3; 
+float kp = 0.227; 
 float ki = 0;
-float kd = 6.5;
+float kd = 6.45;
 float error = 0, error2 = 0, error3 = 0, error4 = 0, error5 = 0, error6 = 0;
 float lastError = 0;
 float integral = 0;
 float derivative = 0;
 float setpoint = 400;
 int correccion = 0;
-int baseSpeed = 110;
+int baseSpeed = 90;
 bool anterior = 1; 
 
 unsigned long lastTimePID = 0;
@@ -154,7 +154,7 @@ void revisarBoton() {
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(BOTTOM, INPUT_PULLUP);
   pinMode(LED, OUTPUT);
   calibrar();
