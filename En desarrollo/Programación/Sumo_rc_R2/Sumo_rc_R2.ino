@@ -3,7 +3,7 @@
 // === Pines de los motores ===
 #define IN1A 4  // Motor izquierdo
 #define IN1B 15
-#define IN2A 22   // Motor derecho
+#define IN2A 22 // Motor derecho
 #define IN2B 23
 
 ControllerPtr myController;
@@ -62,11 +62,12 @@ void loop() {
     int r2val = myController->throttle(); // throttle() corresponde a R2
 
     // Mapeo R2: de 0..1023 → 100..255
-    int maxSpeed = map(r2val, 0, 1020, 100, 255);
+    int maxSpeedleft = map(r2val, 0, 1020, 120, 250);
 
+    int maxSpeedright = map(r2val, 0, 1020, 100, 230);
     // Normalizar sticks a rango -maxSpeed..maxSpeed
-    int motorLeft  = map(ly, -511, 512, maxSpeed, -maxSpeed);  // invertido (arriba = positivo)
-    int motorRight = map(ry, -511, 512, maxSpeed, -maxSpeed);
+    int motorLeft  = map(ly, -511, 512, maxSpeedleft, -maxSpeedleft);  // invertido (arriba = positivo)
+    int motorRight = map(ry, -511, 512, maxSpeedright, -maxSpeedright);
 
     if (abs(motorLeft) < 15) {
       motorLeft = 0;
@@ -83,7 +84,7 @@ void loop() {
     Serial.print("LY: "); Serial.print(ly);
     Serial.print("  RY: "); Serial.print(ry);
     Serial.print("  R2: "); Serial.print(r2val);
-    Serial.print("  maxSpeed: "); Serial.print(maxSpeed);
+// Serial.print("  maxSpeed: "); Serial.print(maxSpeed);
     Serial.print("  ML: "); Serial.print(motorLeft);
     Serial.print("  MR: "); Serial.println(motorRight);
   }
