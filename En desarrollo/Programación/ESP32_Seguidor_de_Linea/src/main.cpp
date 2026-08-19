@@ -21,9 +21,9 @@ uint8_t channel[8] = {4,5,6,7,8,9,10,11};
 // === VARIABLES PID Y CONTROL ===
 int pos = 0;
 int poslast = 350;
-float kp = 0.227; 
+float kp = 0.32; //aumenta la fuerza con la que el robot corrige el error, si se aumenta demasiado oscila
 float ki = 0;
-float kd = 6.45;
+float kd = 6.45; //suavizante de la oscilación
 float error = 0, error2 = 0, error3 = 0, error4 = 0, error5 = 0, error6 = 0;
 float lastError = 0;
 float integral = 0;
@@ -171,6 +171,14 @@ void setup() {
 
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
+
+  while(digitalRead(BOTTOM)){}
+  digitalWrite(LED, LOW);
+  delay(3000);
+  digitalWrite(LED, HIGH);
+  delay(2000);
+  digitalWrite(LED, LOW);
+  
 }
 
 void loop() {
