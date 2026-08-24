@@ -48,7 +48,7 @@ int PWM1 = VBASE_IZQ;  //pwm de la izquierda
 int PWM2 = VBASE_DER;  //pwm de la derecha
 
 // Configuración de PWM para control de motores
-const int frequency = 1000;
+const int frequency = 2000;
 const int resolution = 8;
 
 // Canales PWM del ESP32
@@ -84,8 +84,8 @@ float lectura(int pin){
 
 void motores(int izq, int der) {
 
-  izq = constrain(izq , -250,250); //250 para no forzar el motor al maximo
-  der = constrain(der, -250, 250); //250 para no forzar el motor al maximo   
+  izq = constrain(izq , -1023,1023); //250 para no forzar el motor al maximo
+  der = constrain(der, -1023, 1023); //250 para no forzar el motor al maximo   
 
   if (izq >= 0) {
     ledcWrite(ledChannel, izq);
