@@ -1,6 +1,6 @@
 
 # Triatlon-2026
-Robot Triatlon para Bonaereneses 2026 por parte de los Alumnos de 6° año
+Robot Triatlón para Bonaerenses 2026 por parte de los Alumnos de 6° año. Campeones Región 2
 
 - [@Ulises Basabe](https://github.com/ulisesbasabeibarra-eng)
 - [@Facundo Dominguez](https://github.com/facundodominguez1)
