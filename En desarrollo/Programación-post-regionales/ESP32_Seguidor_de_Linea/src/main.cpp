@@ -42,7 +42,7 @@ unsigned long ultimoTiempoRebote = 0;
 const unsigned long tiempoDebounce = 50; // 50 ms para evitar falsos toques
 
 // Configuración de PWM para control de motores
-const int frequency = 1000;
+const int frequency = 10000;
 const int resolution = 8;
 
 // Canales PWM del ESP32
@@ -91,23 +91,23 @@ void calibrar(){
 
 void motores(int izq, int der) {
   if (izq >= 0) {
-    if(izq > 255){ izq = 255; }
+    if(izq > 1023){ izq = 1023; }
     ledcWrite(ledChannel, izq);
     ledcWrite(ledChannel1, 0);
   } else {
     izq = izq * (-1);
-    if(izq > 255){ izq = 255; }
+        if(izq > 1023){ izq = 1023; }
     ledcWrite(ledChannel, 0);
     ledcWrite(ledChannel1, izq);
   }
   
   if (der >= 0) {
-    if(der > 255){ der = 255; }
+    if(der > 1023){ der = 1023; }
     ledcWrite(ledChannel2, der);
     ledcWrite(ledChannel3, 0);
   } else {
     der = der * (-1);
-    if(der > 255){ der = 255; }
+    if(der > 1023){ der = 1023; }
     ledcWrite(ledChannel2, 0);
     ledcWrite(ledChannel3, der);
   }
@@ -218,8 +218,8 @@ void loop() {
       correccion = calcularPID(pos);
       lastTimePID = micros();
       
-      int velocidadIzquierda = constrain (baseSpeed - correccion, 0, 255);
-      int velocidadDerecha  = constrain (baseSpeed + correccion, 0, 255);
+      int velocidadIzquierda = constrain (baseSpeed - correccion, 0, 1023);
+      int velocidadDerecha  = constrain (baseSpeed + correccion, 0, 1023);
       motores(velocidadIzquierda, velocidadDerecha);
   }
   pos = 0;
