@@ -1,18 +1,33 @@
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <EEPROM.h>
 
-// ===== Motores ====
+//MOTOR DERECHO 
 #define IN1A 4
-#define IN1B 15 //bts 1
-#define IN2A 22
-#define IN2B 23 //bts 2
+#define IN1B 5
 
-#define BOTTOM 17
-#define LED 2
+//MOTOR IZQUIERDO 
+#define IN2A 40
+#define IN2B 39
+
+#define boton1 43 //up - subir- derecha
+#define boton2 44 //enter - calibrar 
+#define boton3 42 //down - bajar - izquierda
+
+#define LED 38
 
 #define TIME_PID 3
 
-// ===== PWM's =====
-int Sensor[8] = {39,34,35,32,33,25,26,27};
+// configuración de la OLED
+#define alto 128
+#define largo 64
+#define oled_reset -1
+Adafruit_SSD1306 display(alto, largo, &Wire, oled_reset);
+
+
+int Sensor[8] = {39,34,35,32,33,25,26,27}; // falta aclarar tema del multi
 
 int umbrales[8] = {0,0,0,0,0,0,0,0};
 bool estado_booleano[8] = {0,0,0,0,0,0,0,0};
@@ -30,7 +45,7 @@ float integral = 0;
 float derivative = 0;
 float setpoint = 400;
 int correccion = 0;
-int baseSpeed = 95;
+int baseSpeed = 300;
 bool anterior = 1; 
 
 unsigned long lastTimePID = 0;
@@ -42,8 +57,8 @@ unsigned long ultimoTiempoRebote = 0;
 const unsigned long tiempoDebounce = 50; // 50 ms para evitar falsos toques
 
 // Configuración de PWM para control de motores
-const int frequency = 10000;
-const int resolution = 8;
+const int frequency = 20000;
+const int resolution = 12;
 
 // Canales PWM del ESP32
 const int ledChannel = 0;
@@ -58,7 +73,7 @@ void calibrar(){
     int blancos[8] = {0,0,0,0,0,0,0,0};
     int negro[8] = {0,0,0,0,0,0,0,0};
     digitalWrite(LED, 1);
-    while(digitalRead(BOTTOM) == 1) { delay(1); }
+    while(digitalRead(boton2) == 1) { delay(1); }
     
     for(int x = 0; x < 8; x++){
         delayMicroseconds(20); 
@@ -67,12 +82,12 @@ void calibrar(){
     
     delay(100);
 
-    while(digitalRead(BOTTOM) == 0) { delay(1); }
+    while(digitalRead(boton2) == 0) { delay(1); }
     digitalWrite(LED, 0);
     delay(500);
     digitalWrite(LED, 1);
     
-    while(digitalRead(BOTTOM)) { delay(1); }
+    while(digitalRead(boton2)) { delay(1); }
     
     for(int x = 0; x < 8; x++){
         delayMicroseconds(20);
@@ -86,28 +101,28 @@ void calibrar(){
     delay(1000);
     digitalWrite(LED, 1);
 
-    while(digitalRead(BOTTOM) == 1) { delay(1); }
+    while(digitalRead(boton2) == 1) { delay(1); }
 }
 
 void motores(int izq, int der) {
   if (izq >= 0) {
-    if(izq > 1023){ izq = 1023; }
+    if(izq > 4095){ izq = 4095; }
     ledcWrite(ledChannel, izq);
     ledcWrite(ledChannel1, 0);
   } else {
     izq = izq * (-1);
-        if(izq > 1023){ izq = 1023; }
+    if(izq > 4095){ izq = 4095; }
     ledcWrite(ledChannel, 0);
     ledcWrite(ledChannel1, izq);
   }
   
   if (der >= 0) {
-    if(der > 1023){ der = 1023; }
+    if(der > 4095){ der = 4095; }
     ledcWrite(ledChannel2, der);
     ledcWrite(ledChannel3, 0);
   } else {
     der = der * (-1);
-    if(der > 1023){ der = 1023; }
+    if(der > 4095){ der = 4095; }
     ledcWrite(ledChannel2, 0);
     ledcWrite(ledChannel3, der);
   }
@@ -131,10 +146,10 @@ int calcularPID(int lectura) {
 // === NUEVA FUNCIÓN PARA REVISAR EL BOTÓN ===
 void revisarBoton() {
   // Si el botón se presiona (LOW porque es INPUT_PULLUP)
-  if (digitalRead(BOTTOM) == LOW) { 
+  if (digitalRead(boton2) == LOW) { 
     delay(50); // Antirebote de hardware por software (espera a que se estabilice)
     
-    if (digitalRead(BOTTOM) == LOW) { // Confirmamos que sigue presionado
+    if (digitalRead(boton2) == LOW) { // Confirmamos que sigue presionado
       kp += 0.05;
       
       // Feedback visual: Cambia el estado del LED para saber que entró al IF
@@ -146,7 +161,7 @@ void revisarBoton() {
       
       // Bucle de espera: se queda aquí hasta que SUELTES el botón
       // Esto evita que sume +0.05 infinitamente mientras lo dejas hundido
-      while(digitalRead(BOTTOM) == LOW) {
+      while(digitalRead(boton2) == LOW) {
         delay(10); 
       }
     }
@@ -155,7 +170,9 @@ void revisarBoton() {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(BOTTOM, INPUT_PULLUP);
+  pinMode(boton1, INPUT_PULLUP);
+  pinMode(boton2, INPUT_PULLUP);
+  pinMode(boton3, INPUT_PULLUP);
   pinMode(LED, OUTPUT);
   calibrar();
   digitalWrite(LED, 0);
@@ -172,7 +189,7 @@ void setup() {
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
-  while(digitalRead(BOTTOM)){}
+  while(digitalRead(boton2)){}
   digitalWrite(LED, LOW);
   delay(3000);
   digitalWrite(LED, HIGH);
@@ -218,8 +235,8 @@ void loop() {
       correccion = calcularPID(pos);
       lastTimePID = micros();
       
-      int velocidadIzquierda = constrain (baseSpeed - correccion, 0, 1023);
-      int velocidadDerecha  = constrain (baseSpeed + correccion, 0, 1023);
+      int velocidadIzquierda = constrain (baseSpeed - correccion, 0, 255);
+      int velocidadDerecha  = constrain (baseSpeed + correccion, 0, 255);
       motores(velocidadIzquierda, velocidadDerecha);
   }
   pos = 0;
