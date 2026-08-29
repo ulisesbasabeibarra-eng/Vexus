@@ -26,6 +26,12 @@
 #define oled_reset -1
 Adafruit_SSD1306 display(alto, largo, &Wire, oled_reset);
 
+#define sig 3
+#define pinA 16
+#define pinB 19
+#define pinC 20
+int channel;
+
 const unsigned char vexusimagen[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -93,7 +99,6 @@ const unsigned char vexusimagen[] PROGMEM = {
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-
 enum Estado {
   pantallazo,
   menu_principal,
@@ -140,7 +145,7 @@ float integral = 0;
 float derivative = 0;
 float setpoint = 400;
 int correccion = 0;
-int baseSpeed = 300;
+int baseSpeed = 1800;
 bool anterior = 1; 
 
 unsigned long lastTimePID = 0;
@@ -350,6 +355,22 @@ void mostrarMensaje(String texto) {
 
 //-------FIN MENU OLED-------
 
+int leermulti(byte channel){
+  digitalWrite(sig, bitRead(channel, 0));
+  digitalWrite(pinA, bitRead(channel, 1));
+  digitalWrite(pinB, bitRead(channel, 2));
+  digitalWrite(pinB, bitRead(channel, 3));
+}
+
+void leermulti2(){
+  for(int i= 0; i<8; i++){
+    digitalWrite(pinA, i&0x01);
+    digitalWrite(pinB, i&0x02);
+    digitalWrite(pinC, i&0x04);
+    Sensor[i]=analogRead(sig);
+  }
+}
+
 
 void calibrar(){
     int blancos[8] = {0,0,0,0,0,0,0,0};
@@ -357,12 +378,11 @@ void calibrar(){
     digitalWrite(led, 1);
     while(digitalRead(boton2) == 1) { delay(1); }
     
-    for(int x = 0; x < 8; x++){
-        delayMicroseconds(20); 
-        blancos[x] = analogRead(Sensor[x]);
-    }
-    
+    leermulti2();
+    for (int x = 0; x < 8; x++) {
+        blancos[x] = Sensor[x];    
     delay(100);
+    }
 
     while(digitalRead(boton2) == 0) { delay(1); }
     digitalWrite(led, 0);
@@ -371,11 +391,10 @@ void calibrar(){
     
     while(digitalRead(boton2)) { delay(1); }
     
-    for(int x = 0; x < 8; x++){
-        delayMicroseconds(20);
-        negro[x] = analogRead(Sensor[x]);
+    leermulti2();
+    for (int x = 0; x < 8; x++) {
+        negro[x] = Sensor[x];
     }
-    
     for(int x = 0; x < 8; x++){
         umbrales[x] = (blancos[x] + negro[x]) / 2;
     }
@@ -390,8 +409,9 @@ void sprint(){
     // Revisamos si el botón ha sido presionado en cada ciclo
   revisarBoton();
 
+  leermulti2();
   for(int x = 0; x < 8; x++){
-    estado_booleano[x] = analogRead(Sensor[x]) > umbrales[x]? 0 : 1;
+    estado_booleano[x] =Sensor[x] > umbrales[x]? 0 : 1;
   }
   
   if(estado_booleano[0] == 0 && estado_booleano[0] != estado_booleano[7]){
@@ -503,6 +523,12 @@ void setup() {
   calibrar();
   digitalWrite(led, 0);
 
+//----Multiplexor----  
+  pinMode(sig, OUTPUT);
+  pinMode(pinA, OUTPUT);  
+  pinMode(pinB, OUTPUT);
+  pinMode(pinC, OUTPUT);  
+
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("Fallo OLED"));
     for(;;);
@@ -528,13 +554,13 @@ void setup() {
   ledcSetup(ledChannel3, frequency, resolution);
   ledcAttachPin(IN2B, ledChannel3);
 
-  while(digitalRead(boton2)){}
+/*  while(digitalRead(boton2)){}
   digitalWrite(led, LOW);
   delay(3000);
   digitalWrite(led, HIGH);
   delay(2000);
   digitalWrite(led, LOW);
-  
+*/  
 }
 
 void loop() {
