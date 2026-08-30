@@ -13,7 +13,7 @@ Robot Triatlón para Bonaerenses 2026 por parte de los Alumnos de 6° año. **Ca
 
 1-Bateria 2s de 450mAh
 
-1-Bateria 3s de 2200mAh
+1-Bateria 3s de 1050mAh
 
 2-Driver de motores BTS7960
 
