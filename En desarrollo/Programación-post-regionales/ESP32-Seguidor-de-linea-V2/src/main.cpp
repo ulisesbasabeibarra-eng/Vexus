@@ -7,15 +7,8 @@
 #include "Oled.h"
 #include "Motores.h"
 
+Motores motorcitos(4, 5, 40, 39);// IN1A, IN1B, IN2A, IN2B
 Oled pantallita;
-
-//MOTOR DERECHO 
-#define IN1A 4
-#define IN1B 5
-
-//MOTOR IZQUIERDO 
-#define IN2A 40
-#define IN2B 39
 
 #define boton1 43 //up - subir- derecha
 #define boton2 44 //enter - calibrar 
@@ -56,7 +49,6 @@ int valorIndex = 0;
 unsigned long tiempoInicio = 0;
 bool cronoActivo = false;
 
-
 int Sensor[8] = {39,34,35,32,33,25,26,27}; // falta aclarar tema del multi
 
 int umbrales[8] = {0,0,0,0,0,0,0,0};
@@ -86,42 +78,8 @@ bool ultimoEstadoBoton = HIGH;
 unsigned long ultimoTiempoRebote = 0;
 const unsigned long tiempoDebounce = 50; // 50 ms para evitar falsos toques
 
-// Configuración de PWM para control de motores
-const int frequency = 20000;
-const int resolution = 12;
-
-// Canales PWM del ESP32
-const int ledChannel = 0;
-const int ledChannel1 = 1;
-const int ledChannel2 = 2;
-const int ledChannel3 = 3;
-
 int PWM1 = baseSpeed;  //pwm de la izquierda
 int PWM2 = baseSpeed;  //pwm de la derecha
-
-void motores(int izq, int der) {
-  if (izq >= 0) {
-    if(izq > 4095){ izq = 4095; }
-    ledcWrite(ledChannel, izq);
-    ledcWrite(ledChannel1, 0);
-  } else {
-    izq = izq * (-1);
-    if(izq > 4095){ izq = 4095; }
-    ledcWrite(ledChannel, 0);
-    ledcWrite(ledChannel1, izq);
-  }
-  
-  if (der >= 0) {
-    if(der > 4095){ der = 4095; }
-    ledcWrite(ledChannel2, der);
-    ledcWrite(ledChannel3, 0);
-  } else {
-    der = der * (-1);
-    if(der > 4095){ der = 4095; }
-    ledcWrite(ledChannel2, 0);
-    ledcWrite(ledChannel3, der);
-  }
-}
 
 int calcularPID(int lectura) {
     error = setpoint - lectura;
@@ -224,7 +182,7 @@ void sprint(){
       
       int velocidadIzquierda = constrain (baseSpeed - correccion, 0, 255);
       int velocidadDerecha  = constrain (baseSpeed + correccion, 0, 255);
-      motores(velocidadIzquierda, velocidadDerecha);
+      motorcitos.moverMotores(velocidadIzquierda, velocidadDerecha);
   }
   pos = 0;
 }
@@ -370,7 +328,6 @@ void manejarCronometro() {
   pantallita.display.display();
 }
 
-
 void dibujarValores() {
   pantallita.display.clearDisplay();
   pantallita.display.setTextSize(1);
@@ -449,18 +406,6 @@ void setup() {
   pinMode(pinC, OUTPUT);  
 
   pantallita.begin();
-  
-  ledcSetup(ledChannel, frequency, resolution);
-  ledcAttachPin(IN1A, ledChannel);
-
-  ledcSetup(ledChannel1, frequency, resolution);
-  ledcAttachPin(IN1B, ledChannel1);
-
-  ledcSetup(ledChannel2, frequency, resolution);
-  ledcAttachPin(IN2A, ledChannel2);
-
-  ledcSetup(ledChannel3, frequency, resolution);
-  ledcAttachPin(IN2B, ledChannel3);
 
 /*  while(digitalRead(boton2)){}
   digitalWrite(led, LOW);
